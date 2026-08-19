@@ -1,5 +1,7 @@
 import './globals.css'
+import './upload-enhancer.css'
 import type { Metadata, Viewport } from 'next'
+import MediaUploadEnhancer from '@/components/MediaUploadEnhancer'
 
 const basePath = process.env.GITHUB_ACTIONS === 'true' ? '/h17-travel-studio' : ''
 
@@ -18,5 +20,5 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="zh-CN"><body>{children}</body></html>
+  return <html lang="zh-CN"><body><MediaUploadEnhancer/>{children}</body></html>
 }
