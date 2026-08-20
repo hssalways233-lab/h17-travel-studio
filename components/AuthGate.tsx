@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import TravelOS from '@/components/TravelOS'
+import AuthBridge from '@/components/AuthBridge'
 import { createClient } from '@/lib/supabase/client'
 
 export default function AuthGate(){
@@ -45,14 +46,13 @@ export default function AuthGate(){
           window.history.replaceState({},'',url.pathname)
         }
 
-        // Give the auth client one tick to persist localStorage before TravelOS mounts.
         await new Promise(resolve=>setTimeout(resolve,120))
         const {data:{session}} = await supabase.auth.getSession()
         if(session?.user){ setMessage('登录成功，正在进入工作台…') }
       }catch(error){
         console.error('H17 auth bootstrap failed',error)
-        setMessage('登录链接未能完成，请从工作台重新发送一封登录邮件。')
-        await new Promise(resolve=>setTimeout(resolve,900))
+        setMessage('登录链接未能完成。现在可以改用邮箱 + 密码直接登录。')
+        await new Promise(resolve=>setTimeout(resolve,700))
       }finally{
         if(mounted) setReady(true)
       }
@@ -71,5 +71,5 @@ export default function AuthGate(){
     </main>
   }
 
-  return <TravelOS/>
+  return <><TravelOS/><AuthBridge/></>
 }
