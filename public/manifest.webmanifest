@@ -1,10 +1,10 @@
 {
-  "name": "禾十七 Travel Content Studio",
+  "name": "禾十七 Travel OS",
   "short_name": "禾十七",
-  "start_url": "/h17-travel-studio/",
-  "scope": "/h17-travel-studio/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f6f2ea",
+  "background_color": "#f5f1e9",
   "theme_color": "#2f6e78",
-  "description": "禾十七的旅行内容工作台"
+  "description": "手机采集、电脑制作、云端同步的禾十七旅行内容工作台"
 }
