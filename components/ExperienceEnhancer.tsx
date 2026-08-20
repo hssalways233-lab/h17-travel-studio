@@ -17,6 +17,7 @@ export default function ExperienceEnhancer(){
     let destinations:DestRow[]=[]
     let uploadInput:HTMLInputElement|null=null
     let uploadSheet:HTMLElement|null=null
+    let dashSig=''
 
     const isDashboard=()=>[...document.querySelectorAll('nav button,.mobileMenu button')].some(el=>el.classList.contains('active')&&el.textContent?.includes('工作台'))
     const findNav=(label:string)=>[...document.querySelectorAll('nav button,.mobileMenu button')].find(el=>el.textContent?.includes(label)) as HTMLButtonElement|undefined
@@ -30,6 +31,7 @@ export default function ExperienceEnhancer(){
     }
 
     function openProduction(title:string){
+      if(!title)return
       localStorage.setItem('h17-pending-topic',title)
       findNav('内容制作')?.click()
       let tries=0
@@ -54,13 +56,16 @@ export default function ExperienceEnhancer(){
       if(!isDashboard()) return
       const main=document.querySelector('main')
       if(!main) return
-      document.querySelector('.smartDashboardBoard')?.remove()
       const week=new Date(mondayISO())
       const doing=topics.filter(t=>['doing','ready'].includes(t.status)).slice(0,2)
       const weekly=topics.filter(t=>t.status==='idea'&&t.planned_at&&new Date(t.planned_at)>=week).slice(0,4)
       const fallback=topics.filter(t=>t.status==='idea').slice(0,4)
       const candidates=weekly.length?weekly:fallback
       const dests=destinations.slice(0,4)
+      const sig=[...doing,...candidates].map(t=>`${t.id}:${t.status}`).join('|')+'#'+dests.map(d=>`${d.name}:${d.material_count||0}:${d.idea_count||0}`).join('|')
+      const existing=document.querySelector('.smartDashboardBoard')
+      if(existing&&dashSig===sig) return
+      existing?.remove();dashSig=sig
       const board=document.createElement('section')
       board.className='smartDashboardBoard'
       const cards=(items:TopicRow[])=>items.map(t=>`<button class="smartExecCard" data-smart-topic="${t.title.replace(/"/g,'&quot;')}"><b>${t.title}</b><span>${t.destination} · ${t.content_type}</span></button>`).join('')||'<div class="smartEmptyState">暂无内容</div>'
@@ -73,6 +78,7 @@ export default function ExperienceEnhancer(){
 
     function restoreNonDashboard(){
       if(isDashboard())return
+      dashSig=''
       const kanban=document.querySelector('.kanban') as HTMLElement|null;if(kanban)kanban.style.display=''
       const accidental=document.querySelector('.smartTopicGroups') as HTMLElement|null;if(accidental)accidental.style.display=''
       document.querySelector('.smartDashboardBoard')?.remove()
@@ -83,8 +89,9 @@ export default function ExperienceEnhancer(){
         const target=e.target as HTMLElement
         const card=target.closest('[data-smart-topic]') as HTMLElement|null
         if(card?.dataset.smartTopic){e.preventDefault();e.stopPropagation();openProduction(card.dataset.smartTopic);return}
-        const grouped=target.closest('.topicChildren button[data-title]') as HTMLElement|null
-        if(grouped?.dataset.title){e.preventDefault();e.stopPropagation();openProduction(grouped.dataset.title);return}
+        const grouped=target.closest('.smartTopicGroups [data-title],.smartTopicGroups [data-topic],.topicChildren [data-title],.drawerTopics [data-topic]') as HTMLElement|null
+        const groupedTitle=grouped?.dataset.title||grouped?.dataset.topic
+        if(groupedTitle){e.preventDefault();e.stopPropagation();openProduction(groupedTitle);return}
         const task=target.closest('.kanban .task') as HTMLElement|null
         if(task){const title=task.querySelector('strong')?.textContent?.trim();if(title){e.preventDefault();e.stopPropagation();openProduction(title);return}}
         const dest=target.closest('[data-dest]') as HTMLElement|null
@@ -132,7 +139,7 @@ export default function ExperienceEnhancer(){
 
     installDelegatedClicks()
     buildMobileUpload()
-    void refreshCache().then(()=>{renderDashboard()})
+    void refreshCache().then(()=>renderDashboard())
 
     const pending=localStorage.getItem('h17-pending-topic');if(pending)setTimeout(()=>openProduction(pending),300)
 
