@@ -139,49 +139,56 @@ export default function MediaUploadEnhancer(){
       await renderMedia(box,topicId)
     }
 
+    const onTopicChange = () => {
+      const box = document.querySelector('.uploadBox') as HTMLElement | null
+      if(box) {
+        setStatus(box,'已切换内容，上传图片会自动归档到当前选题。')
+        void renderMedia(box,getTopicId())
+      }
+    }
+
     const enhance = () => {
       if(disposed) return
       const box = document.querySelector('.uploadBox') as HTMLElement | null
-      if(!box) return
-      if(box.dataset.smartUpload !== '1'){
-        box.dataset.smartUpload = '1'
-        box.classList.add('smartUpload')
-        box.setAttribute('role','button')
-        box.setAttribute('tabindex','0')
-        const title = box.querySelector('b')
-        const subtitle = box.querySelector('span')
-        if(title) title.textContent = '点击上传旅行素材'
-        if(subtitle) subtitle.textContent = '支持多选 / 拖拽上传 · 自动保存云端'
+      if(!box || box.dataset.smartUpload === '1') return
 
-        const input = document.createElement('input')
-        input.type = 'file'
-        input.accept = 'image/*'
-        input.multiple = true
-        input.className = 'smartUploadInput'
-        box.appendChild(input)
+      box.dataset.smartUpload = '1'
+      box.classList.add('smartUpload')
+      box.setAttribute('role','button')
+      box.setAttribute('tabindex','0')
+      const title = box.querySelector('b')
+      const subtitle = box.querySelector('span')
+      if(title) title.textContent = '点击上传旅行素材'
+      if(subtitle) subtitle.textContent = '支持多选 / 拖拽上传 · 自动保存云端'
 
-        const openPicker = (event?:Event) => {
-          if(event) event.preventDefault()
-          if(box.classList.contains('uploading')) return
-          input.click()
-        }
-        box.addEventListener('click',openPicker)
-        box.addEventListener('keydown',(e:KeyboardEvent)=>{
-          if(e.key==='Enter' || e.key===' ') openPicker(e)
-        })
-        input.addEventListener('click',e=>e.stopPropagation())
-        input.addEventListener('change',async()=>{
-          if(input.files?.length) await uploadFiles(box,input.files)
-          input.value=''
-        })
-        box.addEventListener('dragover',e=>{e.preventDefault();box.classList.add('dragging')})
-        box.addEventListener('dragleave',()=>box.classList.remove('dragging'))
-        box.addEventListener('drop',async e=>{
-          e.preventDefault();box.classList.remove('dragging')
-          if(e.dataTransfer?.files?.length) await uploadFiles(box,e.dataTransfer.files)
-        })
-        setStatus(box,'选择当前内容后，图片会自动归档到对应目的地。')
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      input.multiple = true
+      input.className = 'smartUploadInput'
+      box.appendChild(input)
+
+      const openPicker = (event?:Event) => {
+        if(event) event.preventDefault()
+        if(box.classList.contains('uploading')) return
+        input.click()
       }
+      box.addEventListener('click',openPicker)
+      box.addEventListener('keydown',(e:KeyboardEvent)=>{
+        if(e.key==='Enter' || e.key===' ') openPicker(e)
+      })
+      input.addEventListener('click',e=>e.stopPropagation())
+      input.addEventListener('change',async()=>{
+        if(input.files?.length) await uploadFiles(box,input.files)
+        input.value=''
+      })
+      box.addEventListener('dragover',e=>{e.preventDefault();box.classList.add('dragging')})
+      box.addEventListener('dragleave',()=>box.classList.remove('dragging'))
+      box.addEventListener('drop',async e=>{
+        e.preventDefault();box.classList.remove('dragging')
+        if(e.dataTransfer?.files?.length) await uploadFiles(box,e.dataTransfer.files)
+      })
+      setStatus(box,'选择当前内容后，图片会自动归档到对应目的地。')
 
       const select = document.querySelector('.workflowBar select') as HTMLSelectElement | null
       if(select && select !== currentSelect){
@@ -190,18 +197,15 @@ export default function MediaUploadEnhancer(){
         currentSelect.addEventListener('change',onTopicChange)
       }
       const topicId = getTopicId()
-      if(topicId) renderMedia(box,topicId)
+      if(topicId) void renderMedia(box,topicId)
     }
 
-    const onTopicChange = () => {
+    // Only enhance when the production upload box first appears.
+    // Do not re-run on every DOM mutation; that previously caused a render/mutation loop and froze Chrome.
+    const observer = new MutationObserver(()=>{
       const box = document.querySelector('.uploadBox') as HTMLElement | null
-      if(box) {
-        setTimeout(()=>renderMedia(box,getTopicId()),50)
-        setStatus(box,'已切换内容，上传图片会自动归档到当前选题。')
-      }
-    }
-
-    const observer = new MutationObserver(()=>enhance())
+      if(box && box.dataset.smartUpload !== '1') enhance()
+    })
     observer.observe(document.body,{childList:true,subtree:true})
     enhance()
 
