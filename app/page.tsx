@@ -1,5 +1,5 @@
-import TravelOS from '@/components/TravelOS'
+import AuthGate from '@/components/AuthGate'
 
 export default function HomePage(){
-  return <TravelOS/>
+  return <AuthGate/>
 }
