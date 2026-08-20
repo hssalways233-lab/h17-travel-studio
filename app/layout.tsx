@@ -1,28 +1,23 @@
 import './globals.css'
-import './upload-enhancer.css'
-import './studio-automation.css'
-import './experience-enhancer.css'
+import './travel-os.css'
 import type { Metadata, Viewport } from 'next'
-import MediaUploadEnhancer from '@/components/MediaUploadEnhancer'
-import StudioAutomationEnhancer from '@/components/StudioAutomationEnhancer'
-import ExperienceEnhancer from '@/components/ExperienceEnhancer'
 
 const basePath = process.env.GITHUB_ACTIONS === 'true' ? '/h17-travel-studio' : ''
 
 export const metadata: Metadata = {
-  title: '禾十七 · Travel Content Studio',
-  description: '旅行素材、选题、内容制作与小红书数据复盘工作台',
+  title: '禾十七 · Travel OS',
+  description: '手机采集、电脑制作、智能选题与数据复盘的一体化旅行内容工作台',
   manifest: `${basePath}/manifest.webmanifest`,
-  appleWebApp: { capable: true, title: '禾十七 Studio', statusBarStyle: 'default' }
+  appleWebApp: { capable: true, title: '禾十七 Travel OS', statusBarStyle: 'default' }
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#f6f2ea'
+  themeColor: '#f5f1e9'
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="zh-CN"><body><MediaUploadEnhancer/><StudioAutomationEnhancer/><ExperienceEnhancer/>{children}</body></html>
+  return <html lang="zh-CN"><body>{children}</body></html>
 }
