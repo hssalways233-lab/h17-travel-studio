@@ -1,9 +1,11 @@
 import './globals.css'
 import './upload-enhancer.css'
 import './studio-automation.css'
+import './experience-enhancer.css'
 import type { Metadata, Viewport } from 'next'
 import MediaUploadEnhancer from '@/components/MediaUploadEnhancer'
 import StudioAutomationEnhancer from '@/components/StudioAutomationEnhancer'
+import ExperienceEnhancer from '@/components/ExperienceEnhancer'
 
 const basePath = process.env.GITHUB_ACTIONS === 'true' ? '/h17-travel-studio' : ''
 
@@ -22,5 +24,5 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="zh-CN"><body><MediaUploadEnhancer/><StudioAutomationEnhancer/>{children}</body></html>
+  return <html lang="zh-CN"><body><MediaUploadEnhancer/><StudioAutomationEnhancer/><ExperienceEnhancer/>{children}</body></html>
 }
