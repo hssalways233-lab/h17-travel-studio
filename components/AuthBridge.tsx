@@ -3,11 +3,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+function makeDeviceCode(){
+  const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const bytes=new Uint8Array(10)
+  crypto.getRandomValues(bytes)
+  return 'H17-'+Array.from(bytes,b=>alphabet[b%alphabet.length]).join('')
+}
+
 export default function AuthBridge(){
   const supabase=useMemo(()=>createClient(),[])
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
-  const [newPassword,setNewPassword]=useState('')
+  const [deviceCode,setDeviceCode]=useState('')
   const [sessionEmail,setSessionEmail]=useState<string|null>(null)
   const [loginOpen,setLoginOpen]=useState(false)
   const [setupOpen,setSetupOpen]=useState(false)
@@ -47,12 +54,12 @@ export default function AuthBridge(){
   },[])
 
   async function login(){
-    if(!email.trim()||!password)return setMessage('请输入邮箱和登录密码')
+    if(!email.trim()||!password)return setMessage('请输入邮箱和手机登录码')
     setBusy(true);setMessage('')
     const {error}=await supabase.auth.signInWithPassword({email:email.trim(),password})
     setBusy(false)
     if(error){
-      if(/invalid login credentials/i.test(error.message))setMessage('邮箱或密码不正确。如果还没设置过密码，请先在已登录的电脑端点“手机登录设置”。')
+      if(/invalid login credentials/i.test(error.message))setMessage('邮箱或登录码不正确。请在已登录的电脑端重新生成一次“手机登录码”。')
       else setMessage(error.message)
       return
     }
@@ -60,18 +67,23 @@ export default function AuthBridge(){
     setTimeout(()=>location.reload(),300)
   }
 
-  async function setDevicePassword(){
-    if(newPassword.length<8)return setMessage('密码至少 8 位')
+  async function generateDeviceCode(){
+    const code=makeDeviceCode()
     setBusy(true);setMessage('')
-    const {error}=await supabase.auth.updateUser({password:newPassword})
+    const {error}=await supabase.auth.updateUser({password:code})
     setBusy(false)
     if(error){setMessage(error.message);return}
-    setSetupOpen(false);setNewPassword('');setMessage('手机登录密码已设置。以后手机直接用邮箱 + 密码登录，不再收邮件。')
-    setTimeout(()=>setMessage(''),4500)
+    setDeviceCode(code)
+  }
+
+  async function copyCode(){
+    if(!deviceCode)return
+    await navigator.clipboard.writeText(deviceCode)
+    setMessage('登录码已复制。手机端输入同一个邮箱 + 这个登录码即可。')
   }
 
   return <>
-    {sessionEmail&&<button onClick={()=>{setMessage('');setSetupOpen(true)}} style={styles.setupButton}>手机登录设置</button>}
+    {sessionEmail&&<button onClick={()=>{setMessage('');setDeviceCode('');setSetupOpen(true)}} style={styles.setupButton}>手机登录设置</button>}
 
     {(loginOpen||setupOpen)&&<div style={styles.backdrop} onClick={()=>{setLoginOpen(false);setSetupOpen(false)}}>
       <div style={styles.modal} onClick={e=>e.stopPropagation()}>
@@ -79,23 +91,24 @@ export default function AuthBridge(){
         {loginOpen?<>
           <div style={styles.eyebrow}>DEVICE LOGIN</div>
           <h2 style={styles.title}>手机直接登录</h2>
-          <p style={styles.desc}>不再发送登录邮件，也不会再触发 email rate limit。电脑和手机登录同一个账号后自动同步。</p>
+          <p style={styles.desc}>这次不再发送邮件。手机用“邮箱 + 手机登录码”直接登录，之后会保持登录并与电脑实时同步。</p>
           <label style={styles.label}>邮箱</label>
           <input style={styles.input} inputMode="email" autoCapitalize="none" value={email} onChange={e=>setEmail(e.target.value)} placeholder="你的登录邮箱"/>
-          <label style={styles.label}>密码</label>
-          <input style={styles.input} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="手机登录密码" onKeyDown={e=>{if(e.key==='Enter')void login()}}/>
+          <label style={styles.label}>手机登录码</label>
+          <input style={styles.input} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="例如 H17-XXXXXXXXXX" onKeyDown={e=>{if(e.key==='Enter')void login()}}/>
           {message&&<div style={styles.error}>{message}</div>}
           <button style={styles.primary} disabled={busy} onClick={()=>void login()}>{busy?'登录中…':'登录并同步'}</button>
-          <p style={styles.tip}>第一次使用：请先在已经登录成功的电脑端，点击左下角“手机登录设置”，设置一次密码。</p>
+          <p style={styles.tip}>第一次使用：在当前已经登录成功的电脑端，点击左下角“手机登录设置” → “生成手机登录码”。只做一次。</p>
         </>:<>
           <div style={styles.eyebrow}>ONE-TIME SETUP</div>
-          <h2 style={styles.title}>设置手机登录密码</h2>
-          <p style={styles.desc}>当前账号：{sessionEmail}<br/>只设置一次。以后手机直接输入邮箱 + 密码，不再经过 QQ 邮箱跳转。</p>
-          <label style={styles.label}>新密码</label>
-          <input style={styles.input} type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="至少 8 位" onKeyDown={e=>{if(e.key==='Enter')void setDevicePassword()}}/>
-          {message&&<div style={styles.error}>{message}</div>}
-          <button style={styles.primary} disabled={busy} onClick={()=>void setDevicePassword()}>{busy?'保存中…':'保存手机登录密码'}</button>
-          <p style={styles.tip}>设置后不会退出电脑端；手机端刷新网站，点“邮箱登录”即可使用新密码。</p>
+          <h2 style={styles.title}>生成手机登录码</h2>
+          <p style={styles.desc}>当前账号：{sessionEmail}<br/>生成后，手机以后直接登录，不再经过 QQ 邮箱，不再触发 email rate limit。</p>
+          {!deviceCode?<button style={styles.primary} disabled={busy} onClick={()=>void generateDeviceCode()}>{busy?'正在生成…':'一键生成手机登录码'}</button>:<>
+            <div style={styles.codeBox}>{deviceCode}</div>
+            <button style={styles.primary} onClick={()=>void copyCode()}>复制登录码</button>
+          </>}
+          {message&&<div style={styles.info}>{message}</div>}
+          <p style={styles.tip}>生成新登录码会替换旧登录码。电脑端不会退出；手机端刷新网站，点“邮箱登录”后输入邮箱和这个登录码即可。</p>
         </>}
       </div>
     </div>}
@@ -115,7 +128,9 @@ const styles:{[k:string]:React.CSSProperties}={
   label:{display:'block',fontSize:13,fontWeight:700,color:'#4f5753',margin:'12px 0 7px'},
   input:{width:'100%',boxSizing:'border-box',border:'1px solid #d8d2c7',borderRadius:14,padding:'14px 15px',fontSize:16,outline:'none',background:'#fff'},
   primary:{width:'100%',border:0,borderRadius:15,padding:'14px 16px',marginTop:16,background:'#2f7d80',color:'#fff',fontSize:16,fontWeight:800,cursor:'pointer'},
+  codeBox:{marginTop:16,padding:'18px 16px',borderRadius:16,background:'#edf6f4',border:'1px solid #c8ded9',fontSize:23,fontWeight:800,letterSpacing:1.4,textAlign:'center',color:'#205f62',wordBreak:'break-all'},
   error:{marginTop:12,padding:'10px 12px',borderRadius:12,background:'#fff1ef',color:'#a44438',fontSize:13,lineHeight:1.5},
+  info:{marginTop:12,padding:'10px 12px',borderRadius:12,background:'#edf6f4',color:'#28696b',fontSize:13,lineHeight:1.5},
   tip:{fontSize:12,lineHeight:1.65,color:'#7c827e',margin:'14px 2px 0'},
   toast:{position:'fixed',left:'50%',bottom:90,transform:'translateX(-50%)',zIndex:9998,maxWidth:'88vw',background:'#222826',color:'#fff',padding:'12px 16px',borderRadius:14,fontSize:13,boxShadow:'0 12px 40px rgba(0,0,0,.22)'}
 }
