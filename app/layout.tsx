@@ -1,9 +1,9 @@
 import './globals.css'
 import './upload-enhancer.css'
-import './smart-workspace.css'
+import './studio-automation.css'
 import type { Metadata, Viewport } from 'next'
 import MediaUploadEnhancer from '@/components/MediaUploadEnhancer'
-import SmartWorkspaceEnhancer from '@/components/SmartWorkspaceEnhancer'
+import StudioAutomationEnhancer from '@/components/StudioAutomationEnhancer'
 
 const basePath = process.env.GITHUB_ACTIONS === 'true' ? '/h17-travel-studio' : ''
 
@@ -22,5 +22,5 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="zh-CN"><body><MediaUploadEnhancer/><SmartWorkspaceEnhancer/>{children}</body></html>
+  return <html lang="zh-CN"><body><MediaUploadEnhancer/><StudioAutomationEnhancer/>{children}</body></html>
 }
