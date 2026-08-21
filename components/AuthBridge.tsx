@@ -83,7 +83,7 @@ export default function AuthBridge(){
   }
 
   return <>
-    {sessionEmail&&<button onClick={()=>{setMessage('');setDeviceCode('');setSetupOpen(true)}} style={styles.setupButton}>手机登录设置</button>}
+    {sessionEmail&&<button onClick={()=>{setMessage('');setDeviceCode('');setSetupOpen(true)}} style={styles.setupButton}>生成手机登录码</button>}
 
     {(loginOpen||setupOpen)&&<div style={styles.backdrop} onClick={()=>{setLoginOpen(false);setSetupOpen(false)}}>
       <div style={styles.modal} onClick={e=>e.stopPropagation()}>
@@ -98,7 +98,7 @@ export default function AuthBridge(){
           <input style={styles.input} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="例如 H17-XXXXXXXXXX" onKeyDown={e=>{if(e.key==='Enter')void login()}}/>
           {message&&<div style={styles.error}>{message}</div>}
           <button style={styles.primary} disabled={busy} onClick={()=>void login()}>{busy?'登录中…':'登录并同步'}</button>
-          <p style={styles.tip}>第一次使用：在当前已经登录成功的电脑端，点击左下角“手机登录设置” → “生成手机登录码”。只做一次。</p>
+          <p style={styles.tip}>第一次使用：先在已经登录成功的电脑端刷新网站，右上角会出现“生成手机登录码”。点进去生成一次即可。</p>
         </>:<>
           <div style={styles.eyebrow}>ONE-TIME SETUP</div>
           <h2 style={styles.title}>生成手机登录码</h2>
@@ -118,7 +118,7 @@ export default function AuthBridge(){
 }
 
 const styles:{[k:string]:React.CSSProperties}={
-  setupButton:{position:'fixed',left:18,bottom:18,zIndex:80,border:'1px solid #c7d9d6',background:'#eef7f5',color:'#266f72',borderRadius:14,padding:'10px 14px',fontSize:13,fontWeight:700,boxShadow:'0 8px 30px rgba(25,35,30,.08)'},
+  setupButton:{position:'fixed',right:22,top:18,zIndex:9000,border:'1px solid #bcd8d3',background:'#eaf6f4',color:'#226b6e',borderRadius:14,padding:'11px 16px',fontSize:14,fontWeight:800,boxShadow:'0 10px 34px rgba(25,35,30,.12)',cursor:'pointer'},
   backdrop:{position:'fixed',inset:0,zIndex:9999,background:'rgba(28,31,29,.48)',display:'flex',alignItems:'center',justifyContent:'center',padding:18},
   modal:{position:'relative',width:'min(440px,100%)',background:'#fffdf8',border:'1px solid #dfd8cb',borderRadius:26,padding:'30px 24px 24px',boxShadow:'0 30px 90px rgba(0,0,0,.22)',fontFamily:'-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'},
   close:{position:'absolute',right:16,top:14,border:0,background:'#f2eee5',width:36,height:36,borderRadius:18,fontSize:24,lineHeight:'30px',cursor:'pointer'},
