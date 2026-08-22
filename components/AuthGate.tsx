@@ -5,6 +5,7 @@ import { LockKeyhole, ShieldCheck } from 'lucide-react'
 import TravelOS from '@/components/TravelOS'
 import TravelOSAssistant from '@/components/TravelOSAssistant'
 import XhsStrategyPanel from '@/components/XhsStrategyPanel'
+import TopicQuickAdd from '@/components/TopicQuickAdd'
 import { createClient } from '@/lib/supabase/client'
 
 type GateState = 'loading' | 'locked' | 'ready' | 'setup'
@@ -116,6 +117,7 @@ export default function AuthGate(){
       <TravelOS/>
       <TravelOSAssistant/>
       <XhsStrategyPanel/>
+      <TopicQuickAdd/>
     </div>
   }
 
