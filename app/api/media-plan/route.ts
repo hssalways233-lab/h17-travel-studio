@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 
 type ImageInput={id:string;url:string;caption?:string}
 type PlanRequest={title?:string;destination?:string;contentType?:string;images?:ImageInput[]}
-type PlanItem={id:string;include:boolean;role:string;needsText:boolean;overlayText:string;reason:string}
+type OverlayPosition='top-left'|'top-center'|'top-right'|'bottom-left'|'bottom-center'|'bottom-right'
+type PlanItem={id:string;include:boolean;role:string;needsText:boolean;overlayText:string;overlayPosition:OverlayPosition;reason:string;verifiedFacts:string[]}
 
 function cleanTopic(v=''){return v.replace(/[「」]/g,'').replace(/^下一篇[:：]\s*/,'').trim()}
 function fallback(input:PlanRequest){
@@ -15,17 +16,20 @@ function fallback(input:PlanRequest){
     include:i<take,
     role:i<take?(roles[i]||'补充图'):'不发',
     needsText:i<take&&[0,1,2,6,7].includes(i),
-    overlayText:i===0?'值不值得专程去？':i===1?'先说结论':i===2?'吉隆坡怎么去':i===6?'这趟怎么花':i===7?'优点 / 缺点':'',
-    reason:i<take?'先组成一条完整的“决策→路线→体验→总结”叙事':'作为备选，避免同类画面过多'
+    overlayText:i===0?'值不值得专程去？':i===1?'先说结论':i===2?'吉隆坡怎么去':i===6?'真实路线和费用':i===7?'适合谁 / 不适合谁':'',
+    overlayPosition:i===0?'top-left':i===1?'top-left':i===2?'top-center':i===6?'top-center':'bottom-left',
+    reason:i<take?'先组成一条完整的“判断→路线→体验→证据→总结”叙事':'作为备选，避免同类画面过多',
+    verifiedFacts:[]
   }))
   return {
     coverId:publishIds[0]||null,
     publishIds,
     orderIds:publishIds,
-    reason:'先保留 6-9 张形成完整叙事；只有信息图、路线、结论和总结页加字，纯景色/人物图尽量保留原图。',
+    reason:'先保留 6-9 张形成完整叙事；信息截图优先保留原始内容，只加短标题或标注；人物与风景图尽量不加字。',
     overlayTitle:'值不值得专程去？',
-    overlaySubtitle:`${input.destination||'这次旅行'} · 真实体验`,
+    overlaySubtitle:`${input.destination||'这次旅行'} · 路线与真实体验`,
     items,
+    verifiedFacts:[],
     source:'smart-fallback'
   }
 }
@@ -39,7 +43,7 @@ export async function POST(request:Request){
   if(!apiKey||!images.length)return NextResponse.json(base)
 
   try{
-    const content:any[]=[{type:'input_text',text:`你是资深小红书旅行视觉编辑。请直接从这组真实照片里做“可发布成片方案”，不是泛泛建议。\n\n任务：\n1. 从全部照片里挑出最值得发的 7-10 张；照片不足时可少于7张，但不要为凑数放重复/弱图。\n2. 明确第1张封面，以及完整发图顺序。\n3. 对每张图判断：发 / 不发、承担什么角色、是否需要加字、具体加什么字。\n4. 只有封面、结论、路线/交通、花费/证据、优缺点总结这类信息图建议加字；纯海景、人物氛围、细节照优先原图，不要每张都加字。\n5. 避免相似角度重复；优先主体清楚、人物状态自然、目的地识别度高、构图干净、适合手机竖屏阅读的图。\n6. 顺序优先：封面→先说结论→路线/交通→环境→人物→细节→花费/证据→优缺点→结尾。根据实际照片可调整，不要硬套。\n7. 不虚构照片看不到的信息；如果没有花费截图/交通截图，不要假装有。\n\n选题：${input.title||''}\n目的地：${input.destination||''}\n内容类型：${input.contentType||''}\n\n严格输出JSON，不要markdown：\n{\n  "coverId":"...",\n  "publishIds":["..."],\n  "orderIds":["..."],\n  "reason":"整体选片逻辑",\n  "overlayTitle":"封面主字，尽量12字内",\n  "overlaySubtitle":"封面副字，尽量16字内",\n  "items":[{"id":"...","include":true,"role":"封面/路线/环境等","needsText":true,"overlayText":"要加的短字；不加字则空字符串","reason":"为什么这样处理"}]\n}`}]
+    const content:any[]=[{type:'input_text',text:`你是资深小红书旅行视觉编辑。请逐张认真看这组真实照片，做“最终可发布成片方案”。尤其要识别截图里的路线、打车平台、起终点、时长、距离、价格/币种等可以直接读到的证据。不要因为图片是截图就把它当普通配图。\n\n任务：\n1. 从全部照片里挑出最值得发的 7-10 张；不要为了凑数放重复/弱图。\n2. 明确第1张封面，以及完整发图顺序。\n3. 如果有去程和返程打车/地图/订单截图，必须优先识别并分别安排为“去程路线费用”“返程路线费用”或同等准确角色；把截图中能清楚读到的真实金额、币种、时长、起终点整理进 verifiedFacts。看不清就不要猜。\n4. 对每张图判断：发 / 不发、承担什么角色、是否需要加字、具体加什么短字，以及文字放哪块安全区域。\n5. 绝对不要修改、重绘或美化人物脸和身体。人物图优先原图不加字；如果必须加字，避开人物头脸和主体。\n6. 路线/费用截图不要遮住核心数字和路线；最多加一个顶部/底部短标题。原截图里的数字就是证据，不能改。\n7. 纯海景、人物氛围、细节照优先原图；封面、结论、路线/费用、优缺点总结才考虑加字。\n8. 顺序优先：封面→结论→去程路线费用→返程路线费用→环境→人物→细节→总结。根据真实素材灵活调整。\n9. 不虚构照片看不到的信息。\n\n选题：${input.title||''}\n目的地：${input.destination||''}\n内容类型：${input.contentType||''}\n\n严格输出JSON，不要markdown：\n{\n  "coverId":"...",\n  "publishIds":["..."],\n  "orderIds":["..."],\n  "reason":"整体选片逻辑",\n  "overlayTitle":"封面主字，尽量12字内",\n  "overlaySubtitle":"封面副字，尽量16字内",\n  "verifiedFacts":["只能写从图片清楚读到的事实"],\n  "items":[{\n    "id":"...",\n    "include":true,\n    "role":"封面/去程路线费用/返程路线费用/环境/人物等",\n    "needsText":true,\n    "overlayText":"短字；不加字为空",\n    "overlayPosition":"top-left|top-center|top-right|bottom-left|bottom-center|bottom-right",\n    "reason":"为什么这样处理",\n    "verifiedFacts":["本图清楚读到的事实"]\n  }]\n}`}]
     for(const image of images){
       content.push({type:'input_text',text:`图片ID：${image.id}；文件名：${image.caption||''}`})
       content.push({type:'input_image',image_url:image.url})
@@ -47,7 +51,7 @@ export async function POST(request:Request){
     const response=await fetch('https://api.openai.com/v1/responses',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-      body:JSON.stringify({model:'gpt-5.6',input:[{role:'user',content}],text:{verbosity:'low'}})
+      body:JSON.stringify({model:'gpt-5.6',input:[{role:'user',content}],text:{verbosity:'medium'}})
     })
     if(!response.ok)return NextResponse.json(base)
     const data:any=await response.json()
@@ -56,19 +60,26 @@ export async function POST(request:Request){
     const ids=new Set(images.map(x=>x.id))
     const publishIds=Array.isArray(parsed.publishIds)?parsed.publishIds.filter((id:string)=>ids.has(id)).slice(0,18):base.publishIds
     const orderIds=Array.isArray(parsed.orderIds)?parsed.orderIds.filter((id:string)=>publishIds.includes(id)):publishIds
+    const allowedPos=new Set<OverlayPosition>(['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right'])
     const parsedItems=Array.isArray(parsed.items)?parsed.items:[]
     const itemMap=new Map(parsedItems.filter((x:any)=>ids.has(x.id)).map((x:any)=>[x.id,x]))
     const items=images.map(image=>{
       const x:any=itemMap.get(image.id)
-      return x?{
+      const b=base.items.find((y:PlanItem)=>y.id===image.id)!
+      if(!x)return b
+      const pos=allowedPos.has(x.overlayPosition)?x.overlayPosition:b.overlayPosition
+      return {
         id:image.id,
         include:publishIds.includes(image.id),
-        role:String(x.role||'补充图').slice(0,20),
+        role:String(x.role||b.role||'补充图').slice(0,24),
         needsText:Boolean(x.needsText),
-        overlayText:String(x.overlayText||'').slice(0,30),
-        reason:String(x.reason||'').slice(0,120)
-      }:base.items.find((y:PlanItem)=>y.id===image.id)
-    }).filter(Boolean)
+        overlayText:String(x.overlayText||'').slice(0,36),
+        overlayPosition:pos,
+        reason:String(x.reason||'').slice(0,140),
+        verifiedFacts:Array.isArray(x.verifiedFacts)?x.verifiedFacts.map((v:any)=>String(v).trim()).filter(Boolean).slice(0,8):[]
+      }
+    })
+    const verifiedFacts=Array.isArray(parsed.verifiedFacts)?parsed.verifiedFacts.map((v:any)=>String(v).trim()).filter(Boolean).slice(0,20):items.flatMap(x=>x.verifiedFacts).slice(0,20)
     return NextResponse.json({
       ...base,
       ...parsed,
@@ -76,6 +87,7 @@ export async function POST(request:Request){
       publishIds:publishIds.length?publishIds:base.publishIds,
       orderIds:orderIds.length?orderIds:(publishIds.length?publishIds:base.orderIds),
       items,
+      verifiedFacts,
       source:'openai'
     })
   }catch{
