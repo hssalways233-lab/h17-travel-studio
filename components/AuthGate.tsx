@@ -8,6 +8,7 @@ import XhsStrategyPanel from '@/components/XhsStrategyPanel'
 import TopicQuickAdd from '@/components/TopicQuickAdd'
 import PrivateMobileStatus from '@/components/PrivateMobileStatus'
 import MobileTopicDetail from '@/components/MobileTopicDetail'
+import MobileClarityLayer from '@/components/MobileClarityLayer'
 import { createClient } from '@/lib/supabase/client'
 
 type GateState = 'loading' | 'locked' | 'ready' | 'setup'
@@ -122,6 +123,7 @@ export default function AuthGate(){
       <XhsStrategyPanel/>
       <TopicQuickAdd/>
       <MobileTopicDetail/>
+      <MobileClarityLayer/>
     </div>
   }
 
