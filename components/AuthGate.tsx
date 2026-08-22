@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { LockKeyhole, ShieldCheck } from 'lucide-react'
 import TravelOS from '@/components/TravelOS'
 import TravelOSAssistant from '@/components/TravelOSAssistant'
+import XhsStrategyPanel from '@/components/XhsStrategyPanel'
 import { createClient } from '@/lib/supabase/client'
 
 type GateState = 'loading' | 'locked' | 'ready' | 'setup'
@@ -114,6 +115,7 @@ export default function AuthGate(){
       <div className="h17PrivateBadge"><ShieldCheck size={15}/> 私人模式 · 此设备已授权</div>
       <TravelOS/>
       <TravelOSAssistant/>
+      <XhsStrategyPanel/>
     </div>
   }
 
