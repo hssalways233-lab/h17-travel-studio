@@ -76,5 +76,15 @@ export default function TopicQuickAdd(){
         </form>
       </section>
     </div>,document.body)}
+    <style jsx global>{`
+      .h17InlineTopicAdd{border:1px solid #cfe2dc;background:#edf6f3;color:#2f6660;border-radius:12px;padding:9px 11px;display:flex;align-items:center;gap:6px;font-weight:800;white-space:nowrap;cursor:pointer;margin-left:10px}
+      .h17TopicAddBackdrop{position:fixed;inset:0;z-index:260;background:rgba(25,31,29,.38);backdrop-filter:blur(3px);display:grid;place-items:center;padding:18px;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+      .h17TopicAddCard{width:min(440px,100%);background:#fffdf9;border:1px solid #ded8cd;border-radius:22px;padding:20px;box-shadow:0 28px 80px rgba(30,42,37,.18);color:#202522}
+      .h17TopicAddCard header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.h17TopicAddCard header small{font-size:9px;letter-spacing:.18em;color:#2f7b80;font-weight:900}.h17TopicAddCard h3{font-size:24px;margin:5px 0 0}.h17TopicAddCard header button{border:1px solid #e0dad0;background:#fff;border-radius:10px;width:36px;height:36px;display:grid;place-items:center;color:#4c5651}.h17TopicAddCard>p{font-size:12px;line-height:1.7;color:#737b76;margin:12px 0 16px}
+      .h17TopicAddCard form{display:grid;gap:10px}.h17TopicAddCard label{display:grid;gap:5px;font-size:11px;font-weight:700;color:#53605a}.h17TopicAddCard input,.h17TopicAddCard select{width:100%;border:1px solid #dcd5ca;background:#fff;color:#202522;border-radius:11px;padding:11px 12px;outline:none}.h17TopicAddCard input:focus,.h17TopicAddCard select:focus{border-color:#8eb7b1;box-shadow:0 0 0 3px rgba(47,123,128,.08)}
+      .h17TopicAddMessage{font-size:11px;line-height:1.55;background:#f3f0e9;border-radius:10px;padding:9px;color:#5f6a65}.h17TopicAddPrimary{border:0;border-radius:12px;background:#2f7b80;color:#fff;padding:11px 13px;font-weight:850}.h17TopicAddPrimary:disabled{opacity:.5}
+      .h17StrategySynced{font-size:10px;line-height:1.55;color:#62716b;background:#edf6f3;border-radius:10px;padding:8px 9px;margin-top:8px}
+      @media(max-width:720px){.h17InlineTopicAdd{font-size:11px;padding:8px 9px;margin-left:0;margin-top:8px}.h17TopicAddBackdrop{align-items:end}.h17TopicAddCard{border-radius:22px 22px 0 0;width:100%;max-width:none}}
+    `}</style>
   </>
 }
