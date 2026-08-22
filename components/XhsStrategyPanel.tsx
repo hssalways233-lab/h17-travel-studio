@@ -167,6 +167,8 @@ export default function XhsStrategyPanel(){
     const normal=scored[0]||null
     if(recent&&ageDays(recent.published_at)<=3){
       const follow=followupFor(recent)
+      const existing=topics.find(t=>t.title.trim()===follow.title.trim())
+      if(existing){follow.topicId=existing.id;follow.generated=false}
       const signal=postStrength(recent)
       follow.score+=Math.min(8,signal/10)
       if(!normal||follow.score>normal.score+5)return follow
@@ -176,6 +178,34 @@ export default function XhsStrategyPanel(){
 
   const recent=posts[0]
   const selectedPost=posts.find(p=>p.id===selectedPostId)||recent
+
+  // Generated strategy suggestions are automatically staged into the topic library
+  // as an "idea" so they immediately appear in the main Content dropdown. Choosing
+  // to publish is still manual; this only keeps strategy and production in sync.
+  useEffect(()=>{
+    if(loading||!recommendation?.generated||recommendation.topicId)return
+    if(topics.some(t=>t.title.trim()===recommendation.title.trim()))return
+    let cancelled=false
+    async function stage(){
+      const {data:{user}}=await supabase.auth.getUser()
+      const owner=recent?.user_id||topics[0]?.user_id||user?.id
+      if(!owner)return
+      const {error}=await supabase.from('topics').insert({
+        user_id:owner,
+        title:recommendation!.title,
+        destination:recommendation!.destination,
+        content_type:recommendation!.contentType,
+        status:'idea',
+        planned_at:new Date().toISOString(),
+      })
+      if(!error&&!cancelled){
+        setMessage('系统推荐已同步到内容选题库')
+        await load()
+      }
+    }
+    void stage()
+    return()=>{cancelled=true}
+  },[loading,recommendation?.title,recommendation?.generated,recommendation?.topicId,supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function savePulse(){
     if(!selectedPost)return
@@ -206,7 +236,8 @@ export default function XhsStrategyPanel(){
       if(!error)await load()
       return
     }
-    const owner=recent?.user_id||topics[0]?.user_id
+    const {data:{user}}=await supabase.auth.getUser()
+    const owner=recent?.user_id||topics[0]?.user_id||user?.id
     if(!owner){setMessage('还没有可用的工作区 owner');return}
     const {error}=await supabase.from('topics').insert({
       user_id:owner,
@@ -232,7 +263,8 @@ export default function XhsStrategyPanel(){
         <div className="h17StrategyTitle">{recommendation.title}</div>
         <div className="h17StrategyMeta">{recommendation.destination} · {recommendation.contentType}</div>
         <div className="h17StrategyReasons">{recommendation.reason.slice(0,3).map((r,i)=><div key={i}>✓ {r}</div>)}</div>
-        <button className="h17StrategyPrimary" onClick={()=>void adoptRecommendation()}>{recommendation.generated?'加入并设为本周':'就发这篇'}</button>
+        <button className="h17StrategyPrimary" onClick={()=>void adoptRecommendation()}>{recommendation.topicId?'设为本周主内容':'加入并设为本周'}</button>
+        <div className="h17StrategySynced">✓ 推荐题目会自动进入「内容」下拉选题库，状态先保持候选；只有你确认后才进入制作。</div>
       </>:<div className="h17StrategyMuted">先发布并记录一篇内容，系统才有依据。</div>}
 
       <div className="h17PulseHead"><button onClick={()=>setShowPulse(v=>!v)}><BarChart3 size={14}/> 最近动态快记 {showPulse?'收起':'展开'}</button><button title="刷新" onClick={()=>void load()}><RefreshCw size={14}/></button></div>
