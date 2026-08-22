@@ -1,0 +1,1 @@
+OIDC enabled by project owner on 2026-08-22. Trigger production redeploy so Vercel runtime receives fresh OIDC configuration.
