@@ -1,1 +1,3 @@
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f5f1e9;color:#202522}body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}button,input,textarea,select{font:inherit}a{color:inherit}
+/* Travel OS is now a private no-login workspace. Keep legacy auth controls out of the UI. */
+.osSideFoot{display:none!important}
