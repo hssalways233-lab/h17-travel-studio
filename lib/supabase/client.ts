@@ -7,14 +7,13 @@ let cachedWorkspaceOwnerId: string | null = null
 
 /**
  * Travel OS is a private, single-person workspace.
- * Database + Storage RLS are configured for shared anon access, so the UI no
- * longer needs a visible email / magic-link / device-code login flow.
+ * Supabase is used as an anonymous data/storage/realtime backend; there is no
+ * visible email, OTP, magic-link or device-code login in the product.
  *
- * Some legacy rows and write paths still expect a user_id. To preserve the
- * existing schema without a migration rewrite, we resolve the owner id from
- * existing workspace rows and expose it through a tiny invisible auth shim.
- * This is NOT a security boundary; possession of the private workspace URL is
- * effectively access to the workspace.
+ * A few legacy TravelOS write paths still call auth.getUser() only to obtain a
+ * user_id. We expose a compatibility auth facade to the UI while the actual
+ * Supabase client continues making requests with the normal publishable/anon
+ * key. This avoids attaching a fake JWT to database requests.
  */
 export function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || FALLBACK_SUPABASE_URL
@@ -28,11 +27,21 @@ export function createClient() {
     },
   })
 
+  // Separate untouched client used only to discover the historical owner id.
+  // Its auth implementation remains the real Supabase anonymous client.
+  const lookupClient = createSupabaseClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  })
+
   async function resolveWorkspaceOwnerId() {
     if (cachedWorkspaceOwnerId) return cachedWorkspaceOwnerId
 
     for (const table of ['destinations', 'topics', 'posts', 'materials']) {
-      const { data } = await client
+      const { data } = await lookupClient
         .from(table)
         .select('user_id')
         .not('user_id', 'is', null)
@@ -63,8 +72,8 @@ export function createClient() {
     } as any
 
     const session = {
-      access_token: 'workspace-local',
-      refresh_token: 'workspace-local',
+      access_token: '',
+      refresh_token: '',
       expires_in: 315360000,
       expires_at: Math.floor(Date.now() / 1000) + 315360000,
       token_type: 'bearer',
@@ -74,43 +83,51 @@ export function createClient() {
     return { user, session }
   }
 
-  // Compatibility layer for legacy TravelOS write paths. No email, OTP,
-  // magic link or device code is sent or required.
-  ;(client.auth as any).getUser = async () => {
-    try {
-      const { user } = await workspaceIdentity()
-      return { data: { user }, error: null }
-    } catch (error) {
-      return { data: { user: null }, error }
-    }
-  }
-
-  ;(client.auth as any).getSession = async () => {
-    try {
-      const { session } = await workspaceIdentity()
-      return { data: { session }, error: null }
-    } catch (error) {
-      return { data: { session: null }, error }
-    }
-  }
-
-  ;(client.auth as any).onAuthStateChange = (callback: any) => {
-    let active = true
-    void workspaceIdentity().then(({ session }) => {
-      if (active) callback('SIGNED_IN', session)
-    })
-    return {
-      data: {
-        subscription: {
-          unsubscribe() {
-            active = false
+  const authFacade = {
+    async getUser() {
+      try {
+        const { user } = await workspaceIdentity()
+        return { data: { user }, error: null }
+      } catch (error) {
+        return { data: { user: null }, error }
+      }
+    },
+    async getSession() {
+      try {
+        const { session } = await workspaceIdentity()
+        return { data: { session }, error: null }
+      } catch (error) {
+        return { data: { session: null }, error }
+      }
+    },
+    onAuthStateChange(callback: any) {
+      let active = true
+      void workspaceIdentity().then(({ session }) => {
+        if (active) callback('SIGNED_IN', session)
+      })
+      return {
+        data: {
+          subscription: {
+            unsubscribe() {
+              active = false
+            },
           },
         },
-      },
-    }
-  }
+      }
+    },
+    async signOut() {
+      return { error: null }
+    },
+  } as any
 
-  ;(client.auth as any).signOut = async () => ({ error: null })
-
-  return client
+  // The Proxy exposes the facade only to application code accessing .auth.
+  // SupabaseClient's own internal methods still execute against the untouched
+  // target client and therefore continue using anonymous/public-key requests.
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      if (prop === 'auth') return authFacade
+      const value = Reflect.get(target, prop, receiver)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  }) as typeof client
 }
