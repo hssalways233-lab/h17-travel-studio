@@ -4,10 +4,10 @@ const basePath = isGithubPages ? '/h17-travel-studio' : ''
 
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export',
+  ...(isGithubPages ? { output: 'export' } : {}),
   basePath,
   assetPrefix: basePath,
-  trailingSlash: true,
+  trailingSlash: isGithubPages,
   images: { unoptimized: true },
 }
 
