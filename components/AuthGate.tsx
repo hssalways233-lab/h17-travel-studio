@@ -18,47 +18,62 @@ export default function AuthGate(){
     let alive = true
 
     async function prepare(){
-      setState('loading')
-      setMessage('正在确认这台设备…')
+      try{
+        setState('loading')
+        setMessage('正在确认这台设备…')
 
-      let {data:{session}} = await supabase.auth.getSession()
+        let {data:{session},error:sessionError} = await supabase.auth.getSession()
+        if(sessionError) throw sessionError
 
-      if(!session){
-        const {data,error} = await supabase.auth.signInAnonymously()
+        if(!session){
+          const {data,error} = await supabase.auth.signInAnonymously()
+          if(error){
+            if(alive){
+              setMessage(error.message.toLowerCase().includes('anonymous')
+                ? '私人模式还差最后一步：请先在 Supabase 开启 Anonymous Sign-Ins。'
+                : `设备初始化失败：${error.message}`)
+              setState('setup')
+            }
+            return
+          }
+          session = data.session
+        }
+
+        if(!session){
+          if(alive){setMessage('没有建立设备会话，请刷新后再试。');setState('setup')}
+          return
+        }
+
+        const {data,error} = await supabase.rpc('h17_workspace_is_unlocked')
         if(error){
           if(alive){
-            setMessage(error.message.toLowerCase().includes('anonymous')
-              ? '私人模式还差最后一步：请先在 Supabase 开启 Anonymous Sign-Ins。'
-              : `设备初始化失败：${error.message}`)
+            setMessage(error.message.includes('h17_workspace_is_unlocked')
+              ? '私人模式数据库还没有初始化。请先运行 private-workspace.sql。'
+              : `权限检查失败：${error.message}`)
             setState('setup')
           }
           return
         }
-        session = data.session
-      }
 
-      if(!session){
-        if(alive){setMessage('没有建立设备会话，请刷新后再试。');setState('setup')}
-        return
-      }
-
-      const {data,error} = await supabase.rpc('h17_workspace_is_unlocked')
-      if(error){
+        if(alive)setState(data===true?'ready':'locked')
+      }catch(error:any){
         if(alive){
-          setMessage(error.message.includes('h17_workspace_is_unlocked')
-            ? '私人模式数据库还没有初始化。请先运行 private-workspace.sql。'
-            : `权限检查失败：${error.message}`)
+          setMessage(`设备初始化失败：${error?.message||'未知错误'}`)
           setState('setup')
         }
-        return
       }
-
-      if(alive)setState(data===true?'ready':'locked')
     }
 
+    const timer = window.setTimeout(()=>{
+      if(alive && state==='loading'){
+        setMessage('设备确认超时，请点下面按钮重试。')
+        setState('setup')
+      }
+    },10000)
+
     void prepare()
-    return()=>{alive=false}
-  },[supabase])
+    return()=>{alive=false;window.clearTimeout(timer)}
+  },[supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function unlock(e:FormEvent){
     e.preventDefault()
@@ -101,9 +116,9 @@ export default function AuthGate(){
         <div className="h17GateLoader"><i/></div>
       </>:state==='setup'?<>
         <div className="h17GateIcon"><LockKeyhole size={28}/></div>
-        <h1>私人模式待初始化</h1>
+        <h1>私人模式连接异常</h1>
         <p>{message}</p>
-        <button className="h17GateRetry" onClick={()=>location.reload()}>完成设置后刷新</button>
+        <button className="h17GateRetry" onClick={()=>location.reload()}>重新连接</button>
       </>:<>
         <div className="h17GateIcon"><LockKeyhole size={28}/></div>
         <span className="h17GateEyebrow">PRIVATE WORKSPACE</span>
