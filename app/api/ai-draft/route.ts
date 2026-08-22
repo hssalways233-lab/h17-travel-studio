@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { generateText } from 'ai'
 
 type DraftRequest = {
   destination?: string
@@ -54,21 +53,41 @@ function fallbackDraft(input: DraftRequest){
   return {title,coverTitle,coverSubtitle,route,body:fitBody(body,hashtags),hashtags,source:'smart-fallback',limits:{titleMax:TITLE_MAX,bodyMax:BODY_MAX}}
 }
 
+function extractText(data:any){
+  const c=data?.choices?.[0]?.message?.content
+  if(typeof c==='string')return c
+  if(Array.isArray(c))return c.map((x:any)=>x?.text||x?.content||'').join('')
+  return ''
+}
+
 export async function POST(request: Request){
   const input = (await request.json().catch(()=>({}))) as DraftRequest
   const fallback = fallbackDraft(input)
+  const gatewayToken=process.env.AI_GATEWAY_API_KEY || request.headers.get('x-vercel-oidc-token') || process.env.VERCEL_OIDC_TOKEN
+  if(!gatewayToken)return NextResponse.json({...fallback,error:'missing_gateway_auth',errorMessage:'Vercel Function 没有收到 OIDC 令牌。'})
 
   try{
     const prompt = `你是资深小红书旅行编辑。请基于用户真实字段和图片分析结果，写一篇“现在就能发”的图文笔记，不要写成AI模板。\n\n平台硬限制：\n- 标题最多20个字符（中文、英文、空格、标点都按字符看待），绝不能超过20。\n- 正文连同#标签总共最多1000字符，目标650-900字符。\n- 标签5-7个，精准，不堆泛标签。\n\n写作要求：\n- 第一段直接给判断/结论。\n- 标题必须有搜索关键词+明确利益点/判断，但不能失实。\n- 结构优先：结论→真实交通/路线与费用→现场体验→适合谁/不适合谁→一句收尾。\n- 句子短，像真人发小红书；可少量emoji。\n- visualNotes里如果已经从图片确认到金额、币种、时长、起终点，必须优先使用这些真实信息；不要丢掉。\n- 不虚构价格、时间、交通班次或图片看不到的信息。\n- 如果是 Port Dickson/波德申，标题优先做成20字符内的明确判断题；若图片已确认真实往返费用，正文必须具体写出。\n- coverTitle 12-14字内；coverSubtitle 16字内。\n- hashtags只返回数组，不塞进body。\n- 输出严格JSON：title, coverTitle, coverSubtitle, route, body, hashtags。不要markdown。\n\n用户字段：\n目的地：${clean(input.destination)}\n选题：${stripTopic(input.title)}\n内容类型：${clean(input.contentType)}\n路线：${clean(input.route)}\n现有封面主标题：${clean(input.coverTitle)}\n现有封面辅助标题：${clean(input.coverSubtitle)}\n现有正文：${clean(input.body)}\n图片分析摘要：${clean(input.visualNotes)}`
 
-    const result=await generateText({
-      model:'openai/gpt-5.6-sol',
-      prompt,
-      maxOutputTokens:3200,
-      reasoning:'low'
+    const response=await fetch('https://ai-gateway.vercel.sh/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:`Bearer ${gatewayToken}`},
+      body:JSON.stringify({
+        model:'openai/gpt-5.6-sol',
+        messages:[{role:'user',content:prompt}],
+        max_completion_tokens:3200,
+        stream:false
+      })
     })
-
-    const parsed = JSON.parse((result.text||'').replace(/^```json\s*/,'').replace(/```$/,'').trim())
+    if(!response.ok){
+      const detail=await response.text().catch(()=> '')
+      console.error('ai-draft gateway HTTP error',response.status,detail.slice(0,800))
+      return NextResponse.json({...fallback,error:`gateway_http_${response.status}`,errorMessage:detail.slice(0,500)})
+    }
+    const data:any=await response.json()
+    const raw=extractText(data)
+    if(!raw.trim())return NextResponse.json({...fallback,error:'gateway_empty',errorMessage:'AI Gateway 返回了空内容。'})
+    const parsed = JSON.parse(raw.replace(/^```json\s*/,'').replace(/```$/,'').trim())
     const title=safeTitle(parsed.title||fallback.title)
     const hashtags=normalizeTags(parsed.hashtags,clean(input.destination)||'旅行')
     const rawBody=String(parsed.body||fallback.body).replace(/(?:\n\s*)?#\S+(?:\s+#\S+)*\s*$/,'')
@@ -82,11 +101,11 @@ export async function POST(request: Request){
       body,
       hashtags,
       source:'openai',
-      auth:'vercel-oidc',
+      auth:process.env.AI_GATEWAY_API_KEY?'gateway-key':'vercel-oidc',
       limits:{titleMax:TITLE_MAX,bodyMax:BODY_MAX}
     })
   }catch(error:any){
     console.error('ai-draft gateway exception',error)
-    return NextResponse.json({...fallback,error:'gateway_exception',errorMessage:String(error?.message||'AI Gateway连接失败').slice(0,240)})
+    return NextResponse.json({...fallback,error:'gateway_exception',errorMessage:String(error?.message||'AI Gateway连接失败').slice(0,500)})
   }
 }
