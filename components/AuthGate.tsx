@@ -6,6 +6,8 @@ import TravelOS from '@/components/TravelOS'
 import TravelOSAssistant from '@/components/TravelOSAssistant'
 import XhsStrategyPanel from '@/components/XhsStrategyPanel'
 import TopicQuickAdd from '@/components/TopicQuickAdd'
+import PrivateMobileStatus from '@/components/PrivateMobileStatus'
+import MobileTopicDetail from '@/components/MobileTopicDetail'
 import { createClient } from '@/lib/supabase/client'
 
 type GateState = 'loading' | 'locked' | 'ready' | 'setup'
@@ -114,10 +116,12 @@ export default function AuthGate(){
   if(state==='ready'){
     return <div className="h17PrivateReady">
       <div className="h17PrivateBadge"><ShieldCheck size={15}/> 私人模式 · 此设备已授权</div>
+      <PrivateMobileStatus/>
       <TravelOS/>
       <TravelOSAssistant/>
       <XhsStrategyPanel/>
       <TopicQuickAdd/>
+      <MobileTopicDetail/>
     </div>
   }
 
