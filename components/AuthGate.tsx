@@ -11,6 +11,7 @@ import MobileTopicDetail from '@/components/MobileTopicDetail'
 import MobileClarityLayer from '@/components/MobileClarityLayer'
 import XhsContentDirector from '@/components/XhsContentDirector'
 import XhsPublishPack from '@/components/XhsPublishPack'
+import FinalPackLauncher from '@/components/FinalPackLauncher'
 import { createClient } from '@/lib/supabase/client'
 
 type GateState = 'loading' | 'locked' | 'ready' | 'setup'
@@ -128,6 +129,7 @@ export default function AuthGate(){
       <MobileClarityLayer/>
       <XhsContentDirector/>
       <XhsPublishPack/>
+      <FinalPackLauncher/>
     </div>
   }
 
