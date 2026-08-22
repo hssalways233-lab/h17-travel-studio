@@ -1,0 +1,1 @@
+OIDC enabled and verified by user on 2026-08-22. This commit forces a fresh Vercel production deployment so runtime functions receive the new OIDC configuration.
