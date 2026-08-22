@@ -16,6 +16,21 @@ export default function AuthGate(){
 
   useEffect(()=>{
     let alive = true
+    let settled = false
+
+    const finish = (nextState:GateState,nextMessage?:string)=>{
+      if(!alive)return
+      settled = true
+      window.clearTimeout(timer)
+      if(nextMessage!==undefined)setMessage(nextMessage)
+      setState(nextState)
+    }
+
+    const timer = window.setTimeout(()=>{
+      if(alive && !settled){
+        finish('setup','设备确认超时，请点下面按钮重试。')
+      }
+    },12000)
 
     async function prepare(){
       try{
@@ -26,54 +41,44 @@ export default function AuthGate(){
         if(sessionError) throw sessionError
 
         if(!session){
+          setMessage('正在建立这台设备的私人会话…')
           const {data,error} = await supabase.auth.signInAnonymously()
           if(error){
-            if(alive){
-              setMessage(error.message.toLowerCase().includes('anonymous')
-                ? '私人模式还差最后一步：请先在 Supabase 开启 Anonymous Sign-Ins。'
-                : `设备初始化失败：${error.message}`)
-              setState('setup')
-            }
+            finish('setup',error.message.toLowerCase().includes('anonymous')
+              ? '私人模式还差最后一步：请先在 Supabase 开启 Anonymous Sign-Ins。'
+              : `设备初始化失败：${error.message}`)
             return
           }
           session = data.session
         }
 
         if(!session){
-          if(alive){setMessage('没有建立设备会话，请刷新后再试。');setState('setup')}
+          finish('setup','没有建立设备会话，请刷新后再试。')
           return
         }
 
+        setMessage('正在检查这台设备是否已授权…')
         const {data,error} = await supabase.rpc('h17_workspace_is_unlocked')
         if(error){
-          if(alive){
-            setMessage(error.message.includes('h17_workspace_is_unlocked')
-              ? '私人模式数据库还没有初始化。请先运行 private-workspace.sql。'
-              : `权限检查失败：${error.message}`)
-            setState('setup')
-          }
+          finish('setup',error.message.includes('h17_workspace_is_unlocked')
+            ? '私人模式数据库还没有初始化。请先运行 private-workspace.sql。'
+            : `权限检查失败：${error.message}`)
           return
         }
 
-        if(alive)setState(data===true?'ready':'locked')
+        finish(data===true?'ready':'locked','')
       }catch(error:any){
-        if(alive){
-          setMessage(`设备初始化失败：${error?.message||'未知错误'}`)
-          setState('setup')
-        }
+        finish('setup',`设备初始化失败：${error?.message||'未知错误'}`)
       }
     }
 
-    const timer = window.setTimeout(()=>{
-      if(alive && state==='loading'){
-        setMessage('设备确认超时，请点下面按钮重试。')
-        setState('setup')
-      }
-    },10000)
-
     void prepare()
-    return()=>{alive=false;window.clearTimeout(timer)}
-  },[supabase]) // eslint-disable-line react-hooks/exhaustive-deps
+    return()=>{
+      alive=false
+      settled=true
+      window.clearTimeout(timer)
+    }
+  },[supabase])
 
   async function unlock(e:FormEvent){
     e.preventDefault()
@@ -81,21 +86,26 @@ export default function AuthGate(){
     setBusy(true)
     setMessage('正在验证私人访问口令…')
 
-    const {data,error} = await supabase.rpc('h17_unlock_workspace',{p_passphrase:passphrase.trim()})
-    setBusy(false)
+    try{
+      const {data,error} = await supabase.rpc('h17_unlock_workspace',{p_passphrase:passphrase.trim()})
+      if(error){
+        setMessage(`验证失败：${error.message}`)
+        return
+      }
+      if(data!==true){
+        setMessage('访问口令不正确，请重新输入。')
+        setPassphrase('')
+        return
+      }
 
-    if(error){
-      setMessage(`验证失败：${error.message}`)
-      return
-    }
-    if(data!==true){
-      setMessage('访问口令不正确，请重新输入。')
       setPassphrase('')
-      return
+      setMessage('')
+      setState('ready')
+    }catch(error:any){
+      setMessage(`验证失败：${error?.message||'网络异常，请重试'}`)
+    }finally{
+      setBusy(false)
     }
-
-    setPassphrase('')
-    setState('ready')
   }
 
   if(state==='ready'){
