@@ -26,7 +26,7 @@ function normalizeTags(tags:any,destination:string){
 function fitBody(body:string,tags:string[]){
   const suffix=tags.length?`\n\n${tags.join(' ')}`:''
   const room=Math.max(0,BODY_MAX-Array.from(suffix).length)
-  return `${cut(body.trim(),room)}${suffix}`.trim()
+  return cut(body.trim(),room).trim()
 }
 
 function fallbackDraft(input: DraftRequest){
@@ -58,7 +58,7 @@ export async function POST(request: Request){
   if(!apiKey) return NextResponse.json(fallback)
 
   try{
-    const prompt = `你是资深小红书旅行编辑。请基于用户真实字段，写一篇“现在就能发”的图文笔记，不要写成AI模板。\n\n平台硬限制：\n- 标题最多20个字符（中文、英文、空格、标点都按字符看待）。目标最好18-20字符，绝不能超过20。\n- 正文连同#标签总共最多1000字符。目标正文+标签控制在650-900字符，绝不能超过1000。\n- 标签5-7个，精准，不堆泛标签。\n\n写作要求：\n- 第一段直接给判断/结论，不要“如果你也准备去，这篇先收藏”这种模板开头。\n- 标题必须有搜索关键词+明确利益点/判断，但不能失实。\n- 结构优先：结论→怎么去/路线→真实体验→适合谁/不适合谁→一句收尾。\n- 句子短，像真人发小红书；可少量emoji，不要连续emoji。\n- 不虚构具体价格、营业时间、交通班次、亲身经历或数据；没有的信息宁可不写。\n- 如果选题里承诺“花费”，但用户没提供具体金额，不要在最终标题继续承诺“真实花费”。\n- 如果是 Port Dickson/波德申，优先把标题压成类似“Port Dickson值不值得专程去？”这种20字符内的明确判断题。\n- coverTitle要12-14字内；coverSubtitle要16字内。\n- hashtags只返回数组，不要再重复塞进body；系统会自动拼到正文末尾。\n- 输出严格JSON：title, coverTitle, coverSubtitle, route, body, hashtags。不要markdown。\n\n用户字段：\n目的地：${clean(input.destination)}\n选题：${stripTopic(input.title)}\n内容类型：${clean(input.contentType)}\n路线：${clean(input.route)}\n现有封面主标题：${clean(input.coverTitle)}\n现有封面辅助标题：${clean(input.coverSubtitle)}\n现有正文：${clean(input.body)}\n图片分析摘要：${clean(input.visualNotes)}`
+    const prompt = `你是资深小红书旅行编辑。请基于用户真实字段，写一篇“现在就能发”的图文笔记，不要写成AI模板。\n\n平台硬限制：\n- 标题最多20个字符（中文、英文、空格、标点都按字符看待）。目标最好18-20字符，绝不能超过20。\n- 正文连同#标签总共最多1000字符。目标正文+标签控制在650-900字符，绝不能超过1000。\n- 标签5-7个，精准，不堆泛标签。\n\n写作要求：\n- 第一段直接给判断/结论，不要“如果你也准备去，这篇先收藏”这种模板开头。\n- 标题必须有搜索关键词+明确利益点/判断，但不能失实。\n- 结构优先：结论→怎么去/路线→真实体验→适合谁/不适合谁→一句收尾。\n- 句子短，像真人发小红书；可少量emoji，不要连续emoji。\n- 不虚构具体价格、营业时间、交通班次、亲身经历或数据；没有的信息宁可不写。\n- 如果选题里承诺“花费”，但用户没提供具体金额，不要在最终标题继续承诺“真实花费”。\n- 如果是 Port Dickson/波德申，优先把标题压成类似“Port Dickson值不值得专程去？”这种20字符内的明确判断题。\n- coverTitle要12-14字内；coverSubtitle要16字内。\n- hashtags只返回数组，不要塞进body；系统会在界面里拼到正文末尾并检查总字数。\n- 输出严格JSON：title, coverTitle, coverSubtitle, route, body, hashtags。不要markdown。\n\n用户字段：\n目的地：${clean(input.destination)}\n选题：${stripTopic(input.title)}\n内容类型：${clean(input.contentType)}\n路线：${clean(input.route)}\n现有封面主标题：${clean(input.coverTitle)}\n现有封面辅助标题：${clean(input.coverSubtitle)}\n现有正文：${clean(input.body)}\n图片分析摘要：${clean(input.visualNotes)}`
 
     const response = await fetch('https://api.openai.com/v1/responses',{
       method:'POST',
@@ -70,8 +70,9 @@ export async function POST(request: Request){
     const raw = data.output_text || data.output?.flatMap((x:any)=>x.content||[]).find((x:any)=>x.type==='output_text')?.text || ''
     const parsed = JSON.parse(raw.replace(/^```json\s*/,'').replace(/```$/,'').trim())
     const title=safeTitle(parsed.title||fallback.title)
-    const hashtags=normalizeTags(parsed.hashtags,fallback.title)
-    const body=fitBody(String(parsed.body||fallback.body).replace(/(?:\n\s*)?#\S+(?:\s+#\S+)*\s*$/,''),hashtags)
+    const hashtags=normalizeTags(parsed.hashtags,clean(input.destination)||'旅行')
+    const rawBody=String(parsed.body||fallback.body).replace(/(?:\n\s*)?#\S+(?:\s+#\S+)*\s*$/,'')
+    const body=fitBody(rawBody,hashtags)
     return NextResponse.json({
       ...fallback,
       ...parsed,
